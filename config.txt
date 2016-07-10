@@ -3,7 +3,8 @@ txt_file_name = zhongyicihai.txt
 suffix_file_name = suffix.txt
 suffix_singleton_file_name = suffix_singleton.txt
 suffix_stoplist_file_name = suffix_stoplist.txt
+initial_file_name = initial.txt
 xml_schema_file_name = EntryV2.xsd
 [output]
-xml_file_name = dict.xml
+xml_file_name = zhongyicihai.xml
 tab_file_name = tab.txt
