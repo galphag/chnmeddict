@@ -2,23 +2,15 @@
 
 import ConfigParser
 import logging
+import os
 import re
 from lxml import etree
 
 
 def test():
-    suffix_list = [u'六经', u'简名', u'东晋']
-    pattern = re.compile('(' + '|'.join(suffix_list) + ')+')
-    match = pattern.search(u'经六简名东晋') 
-    if match: 
-        # 使用Match获得分组信息 
-        print match.group(0)
-        print match.group(1)
-        print match.start(0)
-        print match.start(1)
-    if True:
-        return None, None
-    return 0, 1
+    os.makedirs(u'.//测试')
+    
+    return
     
 def new_prop(sense, name, text):
     prop = etree.SubElement(sense, 'prop')
@@ -185,7 +177,17 @@ def load_list(file_name):
     return my_list
     
     
-def parse_dict(txt_file_name, suffix_list, suffix_singleton_list, suffix_stoplist, initial):              
+def write_category(file_name, key, value):
+    f = open(file_name + '//' + key + '.txt', 'w')
+    for v in value:
+        f.write(v.encode('utf8'))
+        f.write('\n')
+    f.close()
+    
+    return
+
+
+def parse_dict(txt_file_name, ontology_dict, suffix_list, suffix_singleton_list, suffix_stoplist, initial):              
     root = etree.Element('dict')
     
     entry_cnt = 0
@@ -229,22 +231,15 @@ def parse_dict(txt_file_name, suffix_list, suffix_singleton_list, suffix_stoplis
         
         if category not in category_dict:
             category_dict[category] = list()
-            category_dict[category].append(entry.get('form'))
+        category_dict[category].append(entry.get('form'))
             
         print entry_cnt
-        
+            
     f.close()
     logging.debug(initial)
        
-    for key, value in category_dict.items():
-        f = open('Output/' + key + '.txt', 'w')
-        for v in value:
-            f.write(v.encode('utf8'))
-            f.write('\n')
-        f.close()
-
     logging.debug(entry_cnt)
-    return root
+    return root, category_dict
    
    
 def serialize_dict(root, xml_schema_file_name, output_file_name):
@@ -274,19 +269,66 @@ def serialize_dict(root, xml_schema_file_name, output_file_name):
         print exception.error_log.filter_from_errors()[0].message
 
      
+def load_ontology(file_name):
+    dir_name = u'Output//未分类'
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    dir_name = u'Output//其他'
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+
+    ontology_dict = dict()
+    
+    # 生成目录
+    f = file(file_name)
+    for line in f:
+        line = line.decode('utf8').strip()
+        if len(line) == 0:
+            continue
+        if line.find('//') == 0:
+            continue    # skip comments
+        
+        dir_list = line.split('\t')
+        my_dir = 'Output//' + '//'.join(dir_list)
+        if not os.path.exists(my_dir):
+            os.makedirs(my_dir)
+
+        # 建立词缀与目录的关联        
+        ontology_dict[dir_list[-1]] = my_dir
+    f.close()
+
+    return ontology_dict
+    
 def main():
     config_parser = ConfigParser.ConfigParser()
-    config_parser.read('config.txt')
+    config_parser.read('Input/config.txt')
     
-#     x, y = test()
+#     test()
+    
+    ontology_dict = load_ontology(config_parser.get('input', 'ontology_file_name'))
     
     suffix_list = load_list(config_parser.get('input', 'suffix_file_name'))
     suffix_singleton_list = load_list(config_parser.get('input', 'suffix_singleton_file_name'))
     suffix_stoplist = load_list(config_parser.get('input', 'suffix_stoplist_file_name'))
-    
+     
     initial = ''.join(load_list(config_parser.get('input', 'initial_file_name')))
-    
-    root = parse_dict(config_parser.get('input', 'txt_file_name'), suffix_list, suffix_singleton_list, suffix_stoplist, initial)
+     
+    root, category_dict = parse_dict(config_parser.get('input', 'txt_file_name'), ontology_dict, suffix_list, suffix_singleton_list, suffix_stoplist, initial)
+
+    for key, value in category_dict.items():
+        # 输出到未分类目录
+        write_category(u'Output//未分类//', key, value)
+        
+        # 输出到分类目录
+        pattern = re.compile(ur'(' + ur'|'.join(ontology_dict.keys()) + ur')')
+        match_list = re.findall(pattern, key)
+        if len(match_list) == 0:
+            write_category(u'Output//其他//', key, value)
+        else:
+            for match in match_list:
+                write_category(ontology_dict[match], key, value)
+
     serialize_dict(root, config_parser.get('input', 'xml_schema_file_name'), config_parser.get('output', 'xml_file_name'))
 
     return
